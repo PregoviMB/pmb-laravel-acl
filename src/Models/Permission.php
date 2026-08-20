@@ -50,8 +50,25 @@ class Permission extends Model implements PermissionInterface
         }
     }
 
-    /**
-     * Generate a new unique identifier for the model.
+    /**     * Boot the model - ensure ID is generated before saving.
+     *
+     * @return void
+     */
+    protected static function boot(): void
+    {
+        parent::boot();
+
+        static::creating(function ($model) {
+            $pkType = config('acl.primary_key_type', 'numeric');
+            
+            // Only generate ID for uuid/ulid, not for numeric (database autoincrement)
+            if (($pkType === 'uuid' || $pkType === 'ulid') && !$model->getKey()) {
+                $model->{$model->getKeyName()} = $model->newUniqueId();
+            }
+        });
+    }
+
+    /**     * Generate a new unique identifier for the model.
      *
      * @return string
      */
@@ -60,8 +77,8 @@ class Permission extends Model implements PermissionInterface
         $pkType = config('acl.primary_key_type', 'numeric');
 
         return match ($pkType) {
-            'uuid'  => (string) \Illuminate\Support\Str::uuid(),
-            'ulid'  => (string) \Illuminate\Support\Str::ulid(),
+            'uuid'  => strtolower((string) \Illuminate\Support\Str::uuid()),
+            'ulid'  => strtolower((string) \Illuminate\Support\Str::ulid()),
             default => parent::newUniqueId(),
         };
     }

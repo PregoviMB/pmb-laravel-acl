@@ -5,15 +5,16 @@ use Pmb\Acl\Models\Role;
 use Pmb\Acl\Tests\Models\User;
 use Pmb\Acl\Tests\TestCase;
 
-
 beforeEach(function () {
     // set up a fresh user for each test
+    /** @var TestCase $this */
     $this->user = $this->createUser();
 });
 
 it('can assign a role to a user', function () {
     $role = Role::create(['name' => 'Manager', 'slug' => 'manager']);
 
+    /** @var TestCase $this */
     $this->user->assignRole('manager');
 
     expect($this->user->hasRole('manager'))->toBeTrue()
@@ -24,13 +25,15 @@ it('can sync multiple roles', function () {
     $role1 = Role::create(['name' => 'Editor', 'slug' => 'editor']);
     $role2 = Role::create(['name' => 'Author', 'slug' => 'author']);
 
-    $this->user->syncRoles(['editor', 'author']);
+    /** @var TestCase $this */
+    $this->user->syncRoles(['Editor', 'Author']);
 
     expect($this->user->hasRole(['editor', 'author']))->toBeTrue()
         ->and($this->user->roles()->count())->toBe(2);
 });
 
 it('allows user to inherit permissions from their roles (RBAC)', function () {
+    /** @var TestCase $this */
     $role = Role::create(['name' => 'Editor', 'slug' => 'editor']);
     $permission = Permission::create(['name' => 'posts.edit', 'label' => 'Edit Posts', 'module' => 'blog']);
     
@@ -40,7 +43,14 @@ it('allows user to inherit permissions from their roles (RBAC)', function () {
     expect($this->user->hasPermissionTo('posts.edit'))->toBeTrue();
 });
 
+test('user without role or direct permission does not have access', function () {
+    /** @var TestCase $this */
+    expect($this->user->hasPermissionTo('posts.edit'))->toBeFalse();
+});
+
+
 it('allows direct permission assignment to user (PBAC)', function () {
+    /** @var TestCase $this */
     $permission = Permission::create(['name' => 'users.delete', 'label' => 'Delete Users', 'module' => 'users']);
     
     $this->user->givePermissionTo('users.delete');
@@ -49,6 +59,7 @@ it('allows direct permission assignment to user (PBAC)', function () {
 });
 
 it('resolves wildcard permissions correctly', function () {
+    /** @var TestCase $this */
     // The user has a wildcard permission giving full access to the posts module
     $permission = Permission::create(['name' => 'posts.*', 'label' => 'All Post Actions', 'module' => 'blog']);
     $this->user->givePermissionTo('posts.*');
@@ -61,6 +72,7 @@ it('resolves wildcard permissions correctly', function () {
 });
 
 it('bypasses permission checks for super admins', function () {
+    /** @var TestCase $this */
     $superAdminRole = Role::create(['name' => 'Super Admin', 'slug' => 'super-admin']);
     
     // Assigning the bypass role defined in TestCase configuration

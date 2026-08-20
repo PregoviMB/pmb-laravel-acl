@@ -8,6 +8,9 @@ use Pmb\Acl\Tests\Models\User;
 
 abstract class TestCase extends Orchestra
 {
+
+    // User instance for testing
+    public User $user;
     /**
      * Get package providers for the test environment.
      *
@@ -15,7 +18,7 @@ abstract class TestCase extends Orchestra
      * @return array
      */
     protected function getPackageProviders($app): array
-    {
+    {        
         return [
             AclServiceProvider::class,
         ];
@@ -44,16 +47,30 @@ abstract class TestCase extends Orchestra
      */
     protected function defineEnvironment($app): void
     {
-        $app['config']->set('database.default', 'testing');
-        $app['config']->set('database.connections.testing', [
+        $app->make('config')->set('database.default', 'testing');
+        $app->make('config')->set('database.connections.testing', [
             'driver'   => 'sqlite',
             'database' => ':memory:',
             'prefix'   => '',
         ]);
 
         // Forcer le type de clé primaire à 'numeric' pour l'environnement de test
-        $app['config']->set('acl.primary_key_type', 'numeric');
-        $app['config']->set('acl.user_foreign_key_type', 'numeric');
+        $app->make('config')->set('acl.primary_key_type', 'ulid');
+        $app->make('config')->set('acl.user_foreign_key_type', 'ulid');
+        $app->make('config')->set('acl.models.user', User::class);
+
+        $app->make('config')->set('acl.tables', [
+            'roles' => 'mb_roles',
+            'permissions' => 'mb_permissions',
+            'user_roles' => 'user_roles',
+            'user_permissions' => 'user_permissions',
+            'role_permissions' => 'role_permissions',
+        ]);
+
+        $app->make('config')->set('acl.enable_direct_permissions', true);
+        $app->make('config')->set('acl.super_admin_role', ['super-admin']);
+        
+
     }
 
     /**

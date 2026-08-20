@@ -50,7 +50,7 @@ class Role extends Model implements RoleInterface
      */
     protected function configurePrimaryKeyType(): void
     {
-        $pkType = config('acl.primary_key_type', 'ulid');
+        $pkType = config('acl.primary_key_type', 'numeric');
 
         if ($pkType === 'ulid' || $pkType === 'uuid') {
             $this->keyType = 'string';
@@ -61,8 +61,25 @@ class Role extends Model implements RoleInterface
         }
     }
 
-    /**
-     * Generate a new unique identifier for the model.
+    /**     * Boot the model - ensure ID is generated before saving.
+     *
+     * @return void
+     */
+    protected static function boot(): void
+    {
+        parent::boot();
+
+        static::creating(function ($model) {
+            $pkType = config('acl.primary_key_type', 'numeric');
+            
+            // Only generate ID for uuid/ulid, not for numeric (database autoincrement)
+            if (($pkType === 'uuid' || $pkType === 'ulid') && !$model->getKey()) {
+                $model->{$model->getKeyName()} = $model->newUniqueId();
+            }
+        });
+    }
+
+    /** Generate a new unique identifier for the model.
      *
      * @return string
      */

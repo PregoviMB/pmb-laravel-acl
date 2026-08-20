@@ -8,7 +8,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        $pkType = config('acl.primary_key_type', 'ulid');
+        $pkType = config('acl.primary_key_type', 'numeric');
         $userFkType = config('acl.user_foreign_key_type', 'numeric');
         
         $tables = config('acl.tables');
@@ -17,8 +17,8 @@ return new class extends Migration
         $addPrimaryKey = function (Blueprint $table, string $column = 'id') use ($pkType) {
             match ($pkType) {
                 'uuid' => $table->uuid($column)->primary(),
-                'numeric' => $table->id($column),
-                default => $table->ulid($column)->primary(),
+                'ulid' => $table->ulid($column)->primary(),
+                default => $table->bigIncrements($column),
             };
         };
 
