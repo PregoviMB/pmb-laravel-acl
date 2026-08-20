@@ -37,8 +37,9 @@ return new class extends Migration
         // 1. Roles Table
         Schema::create($tables['roles'], function (Blueprint $table) use ($addPrimaryKey) {
             $addPrimaryKey($table);
-            $table->string('name')->unique(); // e.g. 'admin', 'editor'
-            $table->string('label');
+            $table->string('name')->unique();
+            $table->string('label')->nullable();
+            $table->string('slug')->unique();
             $table->text('description')->nullable();
             $table->boolean('is_system')->default(false);
             $table->timestamps();
@@ -47,8 +48,8 @@ return new class extends Migration
         // 2. Permissions Table
         Schema::create($tables['permissions'], function (Blueprint $table) use ($addPrimaryKey) {
             $addPrimaryKey($table);
-            $table->string('name')->unique(); // e.g. 'posts.create', 'posts.*'
-            $table->string('label');
+            $table->string('name')->unique();
+            $table->string('label')->nullable(); 
             $table->string('module')->default('general');
             $table->timestamps();
         });
@@ -66,6 +67,7 @@ return new class extends Migration
                 $table->foreignUlid('permission_id')->constrained($tables['permissions'])->cascadeOnDelete();
             }
             $table->primary(['role_id', 'permission_id']);
+            $table->timestamps();
         });
 
         // 4. User <-> Role Pivot Table
@@ -80,6 +82,7 @@ return new class extends Migration
                 $table->foreignUlid('role_id')->constrained($tables['roles'])->cascadeOnDelete();
             }
             $table->primary(['user_id', 'role_id']);
+            $table->timestamps();
         });
 
         // 5. User <-> Permission Direct Pivot Table
@@ -94,6 +97,7 @@ return new class extends Migration
                 $table->foreignUlid('permission_id')->constrained($tables['permissions'])->cascadeOnDelete();
             }
             $table->primary(['user_id', 'permission_id']);
+            $table->timestamps();
         });
     }
 

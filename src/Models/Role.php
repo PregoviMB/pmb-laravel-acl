@@ -11,13 +11,23 @@
 
 namespace Pmb\Acl\Models;
 
+use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Pmb\Acl\Contracts\RoleInterface;
 
 class Role extends Model implements RoleInterface
 {
+    
     protected $guarded = [];
+
+    protected $fillable = [
+        'name',
+        'label',
+        'slug',
+        'description',
+        'is_system',
+    ];
 
     /**
      * Create a new Role instance.
@@ -58,7 +68,7 @@ class Role extends Model implements RoleInterface
      */
     public function newUniqueId(): string
     {
-        $pkType = config('acl.primary_key_type', 'ulid');
+        $pkType = config('acl.primary_key_type', 'numeric');
 
         return match ($pkType) {
             'uuid'  => strtolower((string) \Illuminate\Support\Str::uuid()),

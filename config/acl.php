@@ -80,7 +80,7 @@ return [
     | is not explicitly created in the database.
     |
     */
-    'super_admin_role' => 'admin',
+    'super_admin_role' => 'super-admin',
 
     /*
     |--------------------------------------------------------------------------
@@ -102,7 +102,7 @@ return [
     | - 'ulid'    : If your User model uses ULIDs ($table->ulid('id')).
     |
     */
-    'primary_key_type' => 'ulid',
+    'primary_key_type' => 'numeric',
     'user_foreign_key_type' => 'numeric',
 
     /*

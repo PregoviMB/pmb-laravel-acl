@@ -9,7 +9,14 @@ use Pmb\Acl\Models\Role;
 
 class Permission extends Model implements PermissionInterface
 {
+    
     protected $guarded = [];
+
+    protected $fillable = [
+        'name',
+        'label',
+        'module',
+    ];
 
     /**
      * Create a new Permission instance.
@@ -50,7 +57,7 @@ class Permission extends Model implements PermissionInterface
      */
     public function newUniqueId(): string
     {
-        $pkType = config('acl.primary_key_type', 'ulid');
+        $pkType = config('acl.primary_key_type', 'numeric');
 
         return match ($pkType) {
             'uuid'  => (string) \Illuminate\Support\Str::uuid(),

@@ -4,6 +4,7 @@ namespace Pmb\Acl\Traits;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Support\Str;
 use Pmb\Acl\Models\Permission;
 use Pmb\Acl\Models\Role;
 
@@ -192,45 +193,40 @@ trait HasAcl
      * @param string $permission Technical permission name (e.g., 'posts.create').
      * @return bool
      */
+    
     public function hasPermissionTo(string $permission): bool
     {
-        // 1. Super Admin Bypass Check
-        $superAdminRole = config('acl.super_admin_role');
-        if ($superAdminRole && $this->hasRole($superAdminRole)) {
+        // 1. Super Admin bypass check
+        $superAdminRole = config('acl.super_admin_role', 'super-admin');
+        if ($this->hasRole($superAdminRole)) {
             return true;
         }
 
-        // 2. Fetch Direct User Permissions (if enabled in config)
-        $directPermissions = config('acl.enable_direct_permissions', true)
-            ? $this->permissions()->pluck('name')->toArray()
-            : [];
+        // 2. Retrieve all consolidated permissions (direct + via roles)
+        $permissions = $this->getAllPermissions();
 
-        // 3. Fetch Inherited Permissions from Roles
-        $rolePermissions = $this->roles()
-            ->with('permissions')
-            ->get()
-            ->pluck('permissions')
-            ->flatten()
-            ->pluck('name')
-            ->toArray();
+        // 3. Resolve wildcard permissions using pattern matching
+        foreach ($permissions as $p) {
+            $permissionPattern = is_string($p) ? $p : $p->name;
 
-        $allPermissions = array_unique(array_merge($directPermissions, $rolePermissions));
-
-        // 4. Exact Match Check
-        if (in_array($permission, $allPermissions, true)) {
-            return true;
-        }
-
-        // 5. Wildcard Pattern Matching Check
-        if (config('acl.enable_wildcards', true)) {
-            foreach ($allPermissions as $userPermission) {
-                if ($this->matchWildcard($userPermission, $permission)) {
-                    return true;
-                }
+            // Matches wildcard patterns like 'posts.*' against 'posts.draft.comments.delete.edit'
+            if (Str::is($permissionPattern, $permission)) {
+                return true;
             }
         }
 
         return false;
+    }
+
+    /**
+     * Helper to retrieve all consolidated permissions (direct assignments + role-based).
+     */
+    public function getAllPermissions()
+    {
+        $directPermissions = $this->permissions;
+        $rolePermissions = $this->roles->load('permissions')->pluck('permissions')->collapse();
+
+        return $directPermissions->merge($rolePermissions)->unique('id');
     }
 
     /**
