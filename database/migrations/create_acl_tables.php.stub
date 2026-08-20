@@ -1,0 +1,110 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        $pkType = config('acl.primary_key_type', 'ulid');
+        $userFkType = config('acl.user_foreign_key_type', 'numeric');
+        
+        $tables = config('acl.tables');
+
+        // Helper to define primary keys
+        $addPrimaryKey = function (Blueprint $table, string $column = 'id') use ($pkType) {
+            match ($pkType) {
+                'uuid' => $table->uuid($column)->primary(),
+                'numeric' => $table->id($column),
+                default => $table->ulid($column)->primary(),
+            };
+        };
+
+        // Helper to define foreign key to users table
+        $addUserForeignKey = function (Blueprint $table, string $column = 'user_id') use ($userFkType) {
+            $userModel = config('acl.models.user', 'App\Models\User');
+            $userTable = (new $userModel)->getTable();
+
+            match ($userFkType) {
+                'uuid' => $table->foreignUuid($column)->constrained($userTable)->cascadeOnDelete(),
+                'ulid' => $table->foreignUlid($column)->constrained($userTable)->cascadeOnDelete(),
+                default => $table->foreignId($column)->constrained($userTable)->cascadeOnDelete(),
+            };
+        };
+
+        // 1. Roles Table
+        Schema::create($tables['roles'], function (Blueprint $table) use ($addPrimaryKey) {
+            $addPrimaryKey($table);
+            $table->string('name')->unique(); // e.g. 'admin', 'editor'
+            $table->string('label');
+            $table->text('description')->nullable();
+            $table->boolean('is_system')->default(false);
+            $table->timestamps();
+        });
+
+        // 2. Permissions Table
+        Schema::create($tables['permissions'], function (Blueprint $table) use ($addPrimaryKey) {
+            $addPrimaryKey($table);
+            $table->string('name')->unique(); // e.g. 'posts.create', 'posts.*'
+            $table->string('label');
+            $table->string('module')->default('general');
+            $table->timestamps();
+        });
+
+        // 3. Role <-> Permission Pivot Table
+        Schema::create($tables['role_permissions'], function (Blueprint $table) use ($pkType, $tables) {
+            if ($pkType === 'uuid') {
+                $table->foreignUuid('role_id')->constrained($tables['roles'])->cascadeOnDelete();
+                $table->foreignUuid('permission_id')->constrained($tables['permissions'])->cascadeOnDelete();
+            } elseif ($pkType === 'numeric') {
+                $table->foreignId('role_id')->constrained($tables['roles'])->cascadeOnDelete();
+                $table->foreignId('permission_id')->constrained($tables['permissions'])->cascadeOnDelete();
+            } else {
+                $table->foreignUlid('role_id')->constrained($tables['roles'])->cascadeOnDelete();
+                $table->foreignUlid('permission_id')->constrained($tables['permissions'])->cascadeOnDelete();
+            }
+            $table->primary(['role_id', 'permission_id']);
+        });
+
+        // 4. User <-> Role Pivot Table
+        Schema::create($tables['user_roles'], function (Blueprint $table) use ($pkType, $tables, $addUserForeignKey) {
+            $addUserForeignKey($table);
+
+            if ($pkType === 'uuid') {
+                $table->foreignUuid('role_id')->constrained($tables['roles'])->cascadeOnDelete();
+            } elseif ($pkType === 'numeric') {
+                $table->foreignId('role_id')->constrained($tables['roles'])->cascadeOnDelete();
+            } else {
+                $table->foreignUlid('role_id')->constrained($tables['roles'])->cascadeOnDelete();
+            }
+            $table->primary(['user_id', 'role_id']);
+        });
+
+        // 5. User <-> Permission Direct Pivot Table
+        Schema::create($tables['user_permissions'], function (Blueprint $table) use ($pkType, $tables, $addUserForeignKey) {
+            $addUserForeignKey($table);
+
+            if ($pkType === 'uuid') {
+                $table->foreignUuid('permission_id')->constrained($tables['permissions'])->cascadeOnDelete();
+            } elseif ($pkType === 'numeric') {
+                $table->foreignId('permission_id')->constrained($tables['permissions'])->cascadeOnDelete();
+            } else {
+                $table->foreignUlid('permission_id')->constrained($tables['permissions'])->cascadeOnDelete();
+            }
+            $table->primary(['user_id', 'permission_id']);
+        });
+    }
+
+    public function down(): void
+    {
+        $tables = config('acl.tables');
+
+        Schema::dropIfExists($tables['user_permissions']);
+        Schema::dropIfExists($tables['user_roles']);
+        Schema::dropIfExists($tables['role_permissions']);
+        Schema::dropIfExists($tables['permissions']);
+        Schema::dropIfExists($tables['roles']);
+    }
+};

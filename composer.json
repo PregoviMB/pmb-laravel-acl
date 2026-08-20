@@ -1,0 +1,64 @@
+{
+    "name": "pmb/laravel-acl",
+    "description": "A flexible and dynamic Access Control List package for Laravel supporting RBAC, PBAC, and Wildcards.",
+    "type": "library",
+    "keywords": [
+        "pregovi mb",
+        "laravel",
+        "acl",
+        "rbac",
+        "pbac",
+        "wildcard",
+        "permission",
+        "role"
+    ],
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Marley Pregovi MB",
+            "email": "marleypregovi@gmail.com",
+            "role": "Developer"
+        }
+    ],
+    "require": {
+        "php": "^8.2",
+        "illuminate/support": "^10.0|^11.0|^12.0",
+        "illuminate/console": "^10.0|^11.0|^12.0",
+        "illuminate/database": "^10.0|^11.0|^12.0"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^8.0|^9.0",
+        "pestphp/pest": "^2.0|^3.0",
+        "pestphp/pest-plugin-laravel": "^2.0|^3.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Pmb\\Acl\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Pmb\\Acl\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Pmb\\Acl\\AclServiceProvider"
+            ],
+            "aliases": {
+                "Acl": "Pmb\\Acl\\Facades\\Acl"
+            }
+        }
+    },
+    "scripts": {
+        "test": "vendor/bin/pest"
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "config": {
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    }
+}
