@@ -49,7 +49,7 @@ return [
     | Useful for granting full module access without listing every single permission.
     |
     */
-    'enable_wildcards' => true,
+    'enable_wildcards' => env('ENABLE_WILDCARDS', true),
 
     /*
     |--------------------------------------------------------------------------
@@ -102,8 +102,8 @@ return [
     | - 'ulid'    : If your User model uses ULIDs ($table->ulid('id')).
     |
     */
-    'primary_key_type' => 'numeric',
-    'user_foreign_key_type' => 'numeric',
+    'primary_key_type' => env('ACL_PRIMARY_KEY_TYPE', 'numeric'),
+    'user_foreign_key_type' => env('ACL_USER_FK_TYPE', 'numeric'),
 
     /*
     |--------------------------------------------------------------------------
