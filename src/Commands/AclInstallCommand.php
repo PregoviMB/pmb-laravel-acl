@@ -115,6 +115,7 @@ class AclInstallCommand extends Command
         spin(
             callback: function () use ($modeChoice, $enableWildcards, $idType, $isForce) {
                 $this->publishConfig($isForce);
+
                 $this->updateConfigFile($modeChoice, $enableWildcards, $idType, $idType);
                 $this->publishMigrationStub();
             },
@@ -303,10 +304,16 @@ class AclInstallCommand extends Command
         if (File::exists($configPath)) {
             $content = File::get($configPath);
 
-            $content = preg_replace("/'mode' => '.*'/", "'mode' => '{$mode}'", $content);
+            $content = preg_replace("/'mode' => .*/", "'mode' => env('ACL_MODE', '{$mode}'),", $content);
             $content = preg_replace("/'enable_wildcards' => (true|false)/", "'enable_wildcards' => " . ($wildcards ? 'true' : 'false'), $content);
-            $content = preg_replace("/'primary_key_type' => '.*'/", "'primary_key_type' => '{$pkType}'", $content);
-            $content = preg_replace("/'user_foreign_key_type' => '.*'/", "'user_foreign_key_type' => '{$userFkType}'", $content);
+
+
+            // pattern to match 'primary_key_type' => env('ACL_PRIMARY_KEY_TYPE', 'numeric'),
+            $content = preg_replace("/'primary_key_type' => .*/", "'primary_key_type' => env('ACL_PRIMARY_KEY_TYPE', '{$pkType}'),", $content);
+
+
+            // pattern to match 'user_foreign_key_type' => env('ACL_USER_FK_TYPE', 'numeric'),
+            $content = preg_replace("/'user_foreign_key_type' => .*/", "'user_foreign_key_type' => env('ACL_USER_FK_TYPE', '{$userFkType}'),", $content);
 
             File::put($configPath, $content);
         }

@@ -31,7 +31,7 @@ return [
     |    'reports.export' are attached directly to users or API tokens.
     |
     */
-    'mode' => 'hybrid',
+    'mode' => env('ACL_MODE', 'hybrid'),
 
     /*
     |--------------------------------------------------------------------------
