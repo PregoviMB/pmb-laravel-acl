@@ -15,4 +15,5 @@ return [
     'install_success' => 'PMB ACL Package successfully installed and configured.',
     'unauthorized_role' => 'Unauthorized access. Required role(s): :roles',
     'unauthorized_permission' => 'Unauthorized access. Required permission: :permission',
+    'prompt_id_type' => 'Which ID type does your User model use?',
 ];

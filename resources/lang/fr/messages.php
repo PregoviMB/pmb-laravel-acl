@@ -15,4 +15,5 @@ return [
     'install_success' => 'Package PMB ACL installé et configuré avec succès.',
     'unauthorized_role' => 'Accès refusé. Un des rôles suivants est requis : :roles',
     'unauthorized_permission' => 'Accès refusé. La permission suivante est requise : :permission',
+    'prompt_id_type' => 'Quel type d\'identifiant (ID) utilise votre modèle User ?',
 ];
