@@ -16,6 +16,10 @@ class RoleMiddleware
             abort(401, __('pmb-acl::messages.unauthorized_role', ['roles' => $roles]));
         }
 
+        if ($user->hasRole(config('acl.super_admin_role'))) {
+            return $next($request);
+        }
+
         $roleArray = explode('|', $roles);
 
         if (!$user->hasRole($roleArray)) {

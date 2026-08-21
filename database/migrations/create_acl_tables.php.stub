@@ -22,8 +22,8 @@ return new class extends Migration
         $userRolesTable       = $tables['user_roles'] ?? 'user_roles';
         $userPermissionsTable = $tables['user_permissions'] ?? 'user_permissions';
 
-        $pkType     = config('acl.primary_key_type', 'numeric');
-        $userFkType = config('acl.user_foreign_key_type', 'numeric');
+        $pkType     = config('acl.primary_key_type');
+        $userFkType = config('acl.user_foreign_key_type');
 
         // Disable foreign key constraints to avoid issues during table creation
         Schema::disableForeignKeyConstraints();
