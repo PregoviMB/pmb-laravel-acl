@@ -4,46 +4,62 @@ namespace Pmb\Acl\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
+use function Laravel\Prompts\confirm;
+use function Laravel\Prompts\info;
+use function Laravel\Prompts\select;
 
 class AclInstallCommand extends Command
 {
-    protected $signature = 'acl:install';
+    protected $signature = 'acl:installer';
     protected $description = 'Interactively install and configure PMB ACL package';
+
+    protected $help = 'This command will guide you through the installation and configuration of the PMB ACL package.';
 
     public function handle(): int
     {
-        $this->info(__('pmb-acl::messages.install_welcome'));
+        info(__('pmb-acl::messages.install_welcome'));
 
         // 1. Authorization Mode Choice
-        $modeChoice = $this->choice(
-            __('pmb-acl::messages.prompt_mode'),
-            [
+        $modeChoice = select(
+            label: __('pmb-acl::messages.prompt_mode'),
+            options: [
                 'hybrid' => __('pmb-acl::messages.mode_hybrid'),
                 'rbac'   => __('pmb-acl::messages.mode_rbac'),
                 'pbac'   => __('pmb-acl::messages.mode_pbac'),
             ],
-            'hybrid'
+            default: 'hybrid'
         );
 
         // 2. Wildcard Toggle
-        $enableWildcards = $this->confirm(__('pmb-acl::messages.prompt_wildcards'), true);
+        $enableWildcards = confirm(
+            label: __('pmb-acl::messages.prompt_wildcards'),
+            default: true
+        );
 
         // 3. Primary Key Type
-        $pkType = $this->choice(
-            __('pmb-acl::messages.prompt_pk'),
-            ['ulid', 'uuid', 'numeric'],
-            'ulid'
+        $pkType = select(
+            label: __('pmb-acl::messages.prompt_pk'),
+            options: [
+                'ulid'    => 'ulid',
+                'uuid'    => 'uuid',
+                'numeric' => 'numeric',
+            ],
+            default: 'ulid'
         );
 
         // 4. User Foreign Key Type
-        $userFkType = $this->choice(
-            __('pmb-acl::messages.prompt_user_fk'),
-            ['numeric', 'uuid', 'ulid'],
-            'numeric'
+        $userFkType = select(
+            label: __('pmb-acl::messages.prompt_user_fk'),
+            options: [
+                'numeric' => 'numeric',
+                'uuid'    => 'uuid',
+                'ulid'    => 'ulid',
+            ],
+            default: 'numeric'
         );
 
         // 5. Publish Configuration
-        $this->info(__('pmb-acl::messages.publishes_config'));
+        info(__('pmb-acl::messages.publishes_config'));
         $this->call('vendor:publish', [
             '--provider' => 'Pmb\Acl\AclServiceProvider',
             '--tag'      => 'acl-config',
@@ -54,15 +70,18 @@ class AclInstallCommand extends Command
         $this->updateConfigFile($modeChoice, $enableWildcards, $pkType, $userFkType);
 
         // 7. Publish Migration Stub
-        $this->info(__('pmb-acl::messages.publishes_migrations'));
+        info(__('pmb-acl::messages.publishes_migrations'));
         $this->publishMigrationStub();
 
         // 8. Ask to Run Migrations
-        if ($this->confirm(__('pmb-acl::messages.prompt_run_migrations'), true)) {
+        if (confirm(
+            label: __('pmb-acl::messages.prompt_run_migrations'),
+            default: true
+        )) {
             $this->call('migrate');
         }
 
-        $this->info(__('pmb-acl::messages.install_success'));
+        info(__('pmb-acl::messages.install_success'));
 
         return Command::SUCCESS;
     }

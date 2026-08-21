@@ -49,6 +49,10 @@ class AclServiceProvider extends ServiceProvider
      */
     protected function registerPublications(): void
     {
+    
+        // load the translations from the package's resources/lang directory
+        $this->loadTranslationsFrom(__DIR__ . '/../resources/lang', 'pmb-acl');
+
         // if the application is running in the console, publish the configuration and translation files
 
         if ($this->app->runningInConsole()) {
@@ -60,9 +64,6 @@ class AclServiceProvider extends ServiceProvider
                 __DIR__ . '/../resources/lang' => resource_path('lang/vendor/pmb-acl'),
             ], 'acl-translations');
         }
-
-        // load the translations from the package's resources/lang directory
-        $this->loadTranslationsFrom(__DIR__ . '/../resources/lang', 'pmb-acl');
     }
 
     /**
