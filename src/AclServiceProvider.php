@@ -26,6 +26,11 @@ class AclServiceProvider extends ServiceProvider
     {
         // Merge the package configuration with the application's configuration
         $this->mergeConfigFrom(__DIR__ . '/../config/acl.php', 'acl');
+
+        // Bind the AclManager singleton
+        $this->app->singleton('pmb-acl', function () {
+            return new AclManager();
+        });
     }
 
     /**
@@ -39,6 +44,64 @@ class AclServiceProvider extends ServiceProvider
         $this->registerCommands();
         $this->registerMiddlewares();
         $this->registerGateBypass();
+        $this->registerModelObservers();
+    }
+
+    /**
+     * Register model observers to invalidate ACL caches when roles or permissions change.
+     *
+     * @return void
+     */
+    protected function registerModelObservers(): void
+    {
+        $roleModel = config('acl.models.role', \Pmb\Acl\Models\Role::class);
+        $permissionModel = config('acl.models.permission', \Pmb\Acl\Models\Permission::class);
+
+        if (class_exists($roleModel)) {
+            $roleModel::saved(function ($role) {
+                // When a role is updated or saved, flush cache for all users attached to it
+                if (method_exists($role, 'users')) {
+                    $role->users()->each(function ($user) {
+                        if (method_exists($user, 'flushUserAclCache')) {
+                            $user->flushUserAclCache();
+                        }
+                    });
+                }
+            });
+
+            $roleModel::deleted(function ($role) {
+                if (method_exists($role, 'users')) {
+                    $role->users()->each(function ($user) {
+                        if (method_exists($user, 'flushUserAclCache')) {
+                            $user->flushUserAclCache();
+                        }
+                    });
+                }
+            });
+        }
+
+        if (class_exists($permissionModel)) {
+            $permissionModel::saved(function ($permission) {
+                if (method_exists($permission, 'users')) {
+                    $permission->users()->each(function ($user) {
+                        if (method_exists($user, 'flushUserAclCache')) {
+                            $user->flushUserAclCache();
+                        }
+                    });
+                }
+                if (method_exists($permission, 'roles')) {
+                    $permission->roles()->each(function ($role) {
+                        if (method_exists($role, 'users')) {
+                            $role->users()->each(function ($user) {
+                                if (method_exists($user, 'flushUserAclCache')) {
+                                    $user->flushUserAclCache();
+                                }
+                            });
+                        }
+                    });
+                }
+            });
+        }
     }
 
     /**

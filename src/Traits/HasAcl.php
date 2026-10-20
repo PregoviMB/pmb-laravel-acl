@@ -5,6 +5,7 @@ namespace Pmb\Acl\Traits;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Pmb\Acl\Models\Permission;
 use Pmb\Acl\Models\Role;
@@ -78,6 +79,8 @@ trait HasAcl
             $this->roles()->syncWithoutDetaching([$role->id]);
         }
 
+        $this->flushUserAclCache();
+
         return $this;
     }
 
@@ -99,6 +102,8 @@ trait HasAcl
                 $this->roles()->detach($role->id);
             }
         }
+
+        $this->flushUserAclCache();
 
         return $this;
     }
@@ -126,6 +131,8 @@ trait HasAcl
         }
 
         $this->roles()->sync($ids);
+
+        $this->flushUserAclCache();
 
         return $this;
     }
@@ -167,6 +174,8 @@ trait HasAcl
             $this->permissions()->syncWithoutDetaching([$permission->id]);
         }
 
+        $this->flushUserAclCache();
+
         return $this;
     }
 
@@ -188,6 +197,8 @@ trait HasAcl
                 $this->permissions()->detach($permission->id);
             }
         }
+
+        $this->flushUserAclCache();
 
         return $this;
     }
@@ -219,6 +230,8 @@ trait HasAcl
         }
 
         $this->permissions()->sync($ids);
+
+        $this->flushUserAclCache();
 
         return $this;
     }
@@ -262,10 +275,40 @@ trait HasAcl
 
     /**
      * Helper to retrieve all consolidated permissions (direct assignments + role-based).
+     * Cached according to config('acl.cache').
      *
      * @return Collection
      */
     public function getAllPermissions(): Collection
+    {
+        $cacheEnabled = config('acl.cache.enabled', true);
+
+        if (!$cacheEnabled || !$this->getKey()) {
+            return $this->fetchConsolidatedPermissions();
+        }
+
+        $cacheStore = config('acl.cache.store');
+        $cache = $cacheStore ? Cache::store($cacheStore) : Cache::store();
+        $cacheKey = $this->getAclUserCacheKey();
+        $cacheTtl = config('acl.cache.ttl', 86400);
+
+        if ($cacheTtl) {
+            return $cache->remember($cacheKey, $cacheTtl, function () {
+                return $this->fetchConsolidatedPermissions();
+            });
+        }
+
+        return $cache->rememberForever($cacheKey, function () {
+            return $this->fetchConsolidatedPermissions();
+        });
+    }
+
+    /**
+     * Fetch consolidated permissions directly from the database without cache.
+     *
+     * @return Collection
+     */
+    public function fetchConsolidatedPermissions(): Collection
     {
         $mode = config('acl.mode', 'hybrid');
         $allPermissions = collect();
@@ -293,6 +336,34 @@ trait HasAcl
         }
 
         return $allPermissions->unique('id')->values();
+    }
+
+    /**
+     * Get the cache key for this user's permissions.
+     *
+     * @return string
+     */
+    public function getAclUserCacheKey(): string
+    {
+        $prefix = config('acl.cache.key', 'pmb_acl_user_permissions');
+
+        return "{$prefix}_{$this->getKey()}";
+    }
+
+    /**
+     * Flush the cached permissions for this user.
+     *
+     * @return void
+     */
+    public function flushUserAclCache(): void
+    {
+        if (!config('acl.cache.enabled', true) || !$this->getKey()) {
+            return;
+        }
+
+        $cacheStore = config('acl.cache.store');
+        $cache = $cacheStore ? Cache::store($cacheStore) : Cache::store();
+        $cache->forget($this->getAclUserCacheKey());
     }
 
     /**

@@ -142,6 +142,27 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Permissions Cache Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Optimize permission checking performance by caching users' consolidated
+    | permissions in the application cache (Redis, Memcached, database, etc.).
+    |
+    | - 'enabled' : Enable or disable caching (recommended in production).
+    | - 'ttl'     : Time-to-live in seconds (e.g., 86400 for 24h, or null for forever).
+    | - 'key'     : Cache key prefix for user permissions.
+    | - 'store'   : Specific cache store to use, or null to use default cache store.
+    |
+    */
+    'cache' => [
+        'enabled' => env('ACL_CACHE_ENABLED', true),
+        'ttl'     => env('ACL_CACHE_TTL', 86400),
+        'key'     => env('ACL_CACHE_KEY', 'pmb_acl_user_permissions'),
+        'store'   => env('ACL_CACHE_STORE', null),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Domain Permissions Catalog
     |--------------------------------------------------------------------------
     |
