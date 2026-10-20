@@ -26,13 +26,53 @@ class AclServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        // Merge the package configuration with the application's configuration
-        $this->mergeConfigFrom(__DIR__ . '/../config/acl.php', 'acl');
+        // Deep recursive merge to ensure new config sections ('tenant', 'cache', etc.)
+        // are seamlessly available even if the user published an earlier version of config/acl.php
+        $this->mergeConfigRecursively(__DIR__ . '/../config/acl.php', 'acl');
 
         // Bind the AclManager singleton
         $this->app->singleton('pmb-acl', function () {
             return new AclManager();
         });
+    }
+
+    /**
+     * Recursively merges the package configuration with the application's configuration.
+     * Preserves custom host application values (like custom modules, custom tables, mode)
+     * while guaranteeing new package configuration defaults are accessible.
+     *
+     * @param string $path
+     * @param string $key
+     * @return void
+     */
+    protected function mergeConfigRecursively(string $path, string $key): void
+    {
+        $packageConfig = require $path;
+        $hostConfig = $this->app->make('config')->get($key, []);
+
+        $merged = $this->deepMergeArray($packageConfig, $hostConfig);
+
+        $this->app->make('config')->set($key, $merged);
+    }
+
+    /**
+     * Helper to recursively merge two configuration arrays.
+     *
+     * @param array $base
+     * @param array $override
+     * @return array
+     */
+    protected function deepMergeArray(array $base, array $override): array
+    {
+        foreach ($override as $key => $value) {
+            if (is_array($value) && isset($base[$key]) && is_array($base[$key])) {
+                $base[$key] = $this->deepMergeArray($base[$key], $value);
+            } else {
+                $base[$key] = $value;
+            }
+        }
+
+        return $base;
     }
 
     /**
@@ -140,6 +180,11 @@ class AclServiceProvider extends ServiceProvider
                 __DIR__ . '/Traits/HasAcl.php' => app_path('Traits/HasAcl.php'),
                 __DIR__ . '/Traits/HasRolesAndPermissions.php' => app_path('Traits/HasRolesAndPermissions.php'),
             ], 'acl-traits');
+
+            // Migrations (including tenant update migration)
+            $this->publishes([
+                __DIR__ . '/../database/migrations/add_tenant_support_to_acl_tables.php.stub' => database_path('migrations/' . date('Y_m_d_His', time() + 1) . '_add_tenant_support_to_acl_tables.php'),
+            ], 'acl-tenant-migrations');
         }
     }
 

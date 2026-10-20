@@ -84,6 +84,26 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Multi-Tenancy / Scopes Configuration (Contextual RBAC)
+    |--------------------------------------------------------------------------
+    |
+    | Enables contextual roles and permissions scoped to a tenant, team,
+    | organization, company or project (e.g. user is 'Admin' in Tenant 1,
+    | but 'Member' in Tenant 2).
+    |
+    | - 'enabled'         : Enable or disable multi-tenancy support.
+    | - 'foreign_key'     : Name of the scoping column on pivot tables (e.g. 'tenant_id').
+    | - 'type'            : Foreign key type ('numeric', 'uuid', 'ulid').
+    |
+    */
+    'tenant' => [
+        'enabled'     => env('ACL_TENANT_ENABLED', false),
+        'foreign_key' => env('ACL_TENANT_FOREIGN_KEY', 'tenant_id'),
+        'type'        => env('ACL_TENANT_KEY_TYPE', 'numeric'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Primary Key Configuration
     |--------------------------------------------------------------------------
     |

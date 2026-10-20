@@ -310,11 +310,79 @@ class AclInstallCommand extends Command
 
     protected function publishConfig(bool $force = false): void
     {
+        $configPath = config_path('acl.php');
+
+        // If config already exists in host app, gracefully merge missing sections without overriding user's modules
+        if (File::exists($configPath) && !$force) {
+            $this->mergeMissingConfigSections($configPath);
+            return;
+        }
+
         $this->callSilent('vendor:publish', [
             '--provider' => 'Pmb\Acl\AclServiceProvider',
             '--tag'      => 'acl-config',
             '--force'    => $force,
         ]);
+    }
+
+    /**
+     * Appends missing configuration blocks ('tenant', 'cache') to an existing published config/acl.php
+     * so custom user-defined modules and settings are NEVER overwritten or lost.
+     */
+    protected function mergeMissingConfigSections(string $configPath): void
+    {
+        $content = File::get($configPath);
+        $modified = false;
+
+        // Check and append 'cache' block if missing
+        if (!str_contains($content, "'cache' =>")) {
+            $cacheBlock = <<<'PHP'
+
+    /*
+    |--------------------------------------------------------------------------
+    | Permissions Cache Configuration
+    |--------------------------------------------------------------------------
+    */
+    'cache' => [
+        'enabled' => env('ACL_CACHE_ENABLED', true),
+        'ttl'     => env('ACL_CACHE_TTL', 86400),
+        'key'     => env('ACL_CACHE_KEY', 'pmb_acl_user_permissions'),
+        'store'   => env('ACL_CACHE_STORE', null),
+    ],
+
+PHP;
+            // Insert before 'models' or 'modules'
+            if (str_contains($content, "'models' =>")) {
+                $content = str_replace("'models' =>", $cacheBlock . "    'models' =>", $content);
+                $modified = true;
+            }
+        }
+
+        // Check and append 'tenant' block if missing
+        if (!str_contains($content, "'tenant' =>") && !str_contains($content, "'teams' =>")) {
+            $tenantBlock = <<<'PHP'
+
+    /*
+    |--------------------------------------------------------------------------
+    | Multi-Tenancy / Scopes Configuration (Contextual RBAC)
+    |--------------------------------------------------------------------------
+    */
+    'tenant' => [
+        'enabled'     => env('ACL_TENANT_ENABLED', false),
+        'foreign_key' => env('ACL_TENANT_FOREIGN_KEY', 'tenant_id'),
+        'type'        => env('ACL_TENANT_KEY_TYPE', 'numeric'),
+    ],
+
+PHP;
+            if (str_contains($content, "'primary_key_type' =>")) {
+                $content = str_replace("'primary_key_type' =>", $tenantBlock . "    'primary_key_type' =>", $content);
+                $modified = true;
+            }
+        }
+
+        if ($modified) {
+            File::put($configPath, $content);
+        }
     }
 
     protected function publishModels(bool $force = false): void

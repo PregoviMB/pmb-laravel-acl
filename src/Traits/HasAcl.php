@@ -24,7 +24,83 @@ use Pmb\Acl\Models\Role;
 trait HasAcl
 {
     /**
-     * Relationship: Get all assigned roles for the user.
+     * Contextual tenant/scope identifier for multi-tenancy.
+     *
+     * @var mixed
+     */
+    protected mixed $aclCurrentTenantId = null;
+
+    /**
+     * Scope subsequent role and permission operations to a specific tenant (organization, team, company, project).
+     *
+     * @param mixed $tenant Tenant model or ID
+     * @return static
+     */
+    public function forTenant(mixed $tenant): static
+    {
+        $clone = clone $this;
+        $clone->aclCurrentTenantId = is_object($tenant) ? ($tenant->getKey() ?? $tenant->id) : $tenant;
+
+        return $clone;
+    }
+
+    /**
+     * Alias for forTenant to maintain backwards compatibility.
+     *
+     * @param mixed $team Team/Tenant model or ID
+     * @return static
+     */
+    public function forTeam(mixed $team): static
+    {
+        return $this->forTenant($team);
+    }
+
+    /**
+     * Set the current tenant ID context directly on this instance.
+     *
+     * @param mixed $tenant Tenant model or ID
+     * @return static
+     */
+    public function setAclTenant(mixed $tenant): static
+    {
+        $this->aclCurrentTenantId = is_object($tenant) ? ($tenant->getKey() ?? $tenant->id) : $tenant;
+
+        return $this;
+    }
+
+    /**
+     * Alias for setAclTenant.
+     *
+     * @param mixed $team
+     * @return static
+     */
+    public function setAclTeam(mixed $team): static
+    {
+        return $this->setAclTenant($team);
+    }
+
+    /**
+     * Get the active tenant ID context.
+     *
+     * @return mixed
+     */
+    public function getAclTenantId(): mixed
+    {
+        return $this->aclCurrentTenantId;
+    }
+
+    /**
+     * Alias for getAclTenantId.
+     *
+     * @return mixed
+     */
+    public function getAclTeamId(): mixed
+    {
+        return $this->getAclTenantId();
+    }
+
+    /**
+     * Relationship: Get all assigned roles for the user (scoped to tenant if enabled).
      *
      * @return BelongsToMany
      */
@@ -34,11 +110,23 @@ trait HasAcl
         $pivotTable = config('acl.tables.user_roles', 'user_roles');
 
         /** @var Model $this */
-        return $this->belongsToMany($roleModel, $pivotTable)->withTimestamps();
+        $relation = $this->belongsToMany($roleModel, $pivotTable)->withTimestamps();
+
+        $tenantEnabled = config('acl.tenant.enabled', config('acl.teams.enabled', false));
+        if ($tenantEnabled) {
+            $tenantFk = config('acl.tenant.foreign_key', config('acl.teams.foreign_key', 'tenant_id'));
+            $relation->withPivot($tenantFk);
+
+            if ($this->aclCurrentTenantId !== null) {
+                $relation->wherePivot($tenantFk, $this->aclCurrentTenantId);
+            }
+        }
+
+        return $relation;
     }
 
     /**
-     * Relationship: Get all direct permissions assigned to the user.
+     * Relationship: Get all direct permissions assigned to the user (scoped to tenant if enabled).
      * Note: Evaluated only if 'enable_direct_permissions' is set to true in config/acl.php.
      *
      * @return BelongsToMany
@@ -49,7 +137,19 @@ trait HasAcl
         $pivotTable = config('acl.tables.user_permissions', 'user_permissions');
 
         /** @var Model $this */
-        return $this->belongsToMany($permissionModel, $pivotTable)->withTimestamps();
+        $relation = $this->belongsToMany($permissionModel, $pivotTable)->withTimestamps();
+
+        $tenantEnabled = config('acl.tenant.enabled', config('acl.teams.enabled', false));
+        if ($tenantEnabled) {
+            $tenantFk = config('acl.tenant.foreign_key', config('acl.teams.foreign_key', 'tenant_id'));
+            $relation->withPivot($tenantFk);
+
+            if ($this->aclCurrentTenantId !== null) {
+                $relation->wherePivot($tenantFk, $this->aclCurrentTenantId);
+            }
+        }
+
+        return $relation;
     }
 
     /**
@@ -71,12 +171,21 @@ trait HasAcl
     public function assignRole(string|Role ...$roles): static
     {
         $roleModel = config('acl.models.role', Role::class);
+        $tenantEnabled = config('acl.tenant.enabled', config('acl.teams.enabled', false));
+        $tenantFk = config('acl.tenant.foreign_key', config('acl.teams.foreign_key', 'tenant_id'));
+        $pivotData = ($tenantEnabled && $this->aclCurrentTenantId !== null)
+            ? [$tenantFk => $this->aclCurrentTenantId]
+            : [];
 
         foreach ($roles as $role) {
             if (is_string($role)) {
                 $role = $roleModel::where('slug', $role)->orWhere('name', $role)->firstOrFail();
             }
-            $this->roles()->syncWithoutDetaching([$role->id]);
+            if ($tenantEnabled && $this->aclCurrentTenantId !== null) {
+                $this->roles()->syncWithoutDetaching([$role->id => $pivotData]);
+            } else {
+                $this->roles()->syncWithoutDetaching([$role->id]);
+            }
         }
 
         $this->flushUserAclCache();
@@ -166,12 +275,21 @@ trait HasAcl
         }
 
         $permissionModel = config('acl.models.permission', Permission::class);
+        $tenantEnabled = config('acl.tenant.enabled', config('acl.teams.enabled', false));
+        $tenantFk = config('acl.tenant.foreign_key', config('acl.teams.foreign_key', 'tenant_id'));
+        $pivotData = ($tenantEnabled && $this->aclCurrentTenantId !== null)
+            ? [$tenantFk => $this->aclCurrentTenantId]
+            : [];
 
         foreach ($permissions as $permission) {
             if (is_string($permission)) {
                 $permission = $permissionModel::where('name', $permission)->firstOrFail();
             }
-            $this->permissions()->syncWithoutDetaching([$permission->id]);
+            if ($tenantEnabled && $this->aclCurrentTenantId !== null) {
+                $this->permissions()->syncWithoutDetaching([$permission->id => $pivotData]);
+            } else {
+                $this->permissions()->syncWithoutDetaching([$permission->id]);
+            }
         }
 
         $this->flushUserAclCache();
@@ -367,12 +485,13 @@ trait HasAcl
     public function getAclUserCacheKey(): string
     {
         $prefix = config('acl.cache.key', 'pmb_acl_user_permissions');
+        $scope = $this->aclCurrentTenantId !== null ? "_tenant_{$this->aclCurrentTenantId}" : '';
 
-        return "{$prefix}_{$this->getKey()}";
+        return "{$prefix}_{$this->getKey()}{$scope}";
     }
 
     /**
-     * Flush the cached permissions for this user.
+     * Flush the cached permissions for this user (for current scope or global).
      *
      * @return void
      */
@@ -385,6 +504,12 @@ trait HasAcl
         $cacheStore = config('acl.cache.store');
         $cache = $cacheStore ? Cache::store($cacheStore) : Cache::store();
         $cache->forget($this->getAclUserCacheKey());
+
+        // If currently in a tenant scope, also invalidate base key
+        if ($this->aclCurrentTenantId !== null) {
+            $prefix = config('acl.cache.key', 'pmb_acl_user_permissions');
+            $cache->forget("{$prefix}_{$this->getKey()}");
+        }
     }
 
     /**
