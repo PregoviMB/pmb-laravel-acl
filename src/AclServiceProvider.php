@@ -12,6 +12,8 @@ namespace Pmb\Acl;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Pmb\Acl\Commands\AclInstallCommand;
+use Pmb\Acl\Commands\AclShowCommand;
+use Pmb\Acl\Commands\AclSyncCommand;
 use Pmb\Acl\Http\Middlewares\PermissionMiddleware;
 use Pmb\Acl\Http\Middlewares\RoleMiddleware;
 
@@ -151,6 +153,8 @@ class AclServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->commands([
                 AclInstallCommand::class,
+                AclSyncCommand::class,
+                AclShowCommand::class,
             ]);
         }
     }
