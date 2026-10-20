@@ -43,27 +43,38 @@ class AclServiceProvider extends ServiceProvider
 
     /**
      * Register the package's publications 
-     * (config and translations).
+     * (config, translations, models, and traits).
      *
      * @return void
      */
     protected function registerPublications(): void
     {
-
         // load the translations from the package's resources/lang directory
         $this->loadTranslationsFrom(__DIR__ . '/../resources/lang', 'pmb-acl');
 
-
-        // if the application is running in the console, publish the configuration and translation files
-
+        // if the application is running in the console, publish the resources
         if ($this->app->runningInConsole()) {
+            // Configuration
             $this->publishes([
                 __DIR__ . '/../config/acl.php' => config_path('acl.php'),
             ], 'acl-config');
 
+            // Translations
             $this->publishes([
                 __DIR__ . '/../resources/lang' => resource_path('lang/vendor/pmb-acl'),
             ], 'acl-translations');
+
+            // Models
+            $this->publishes([
+                __DIR__ . '/Models/Role.php' => app_path('Models/Role.php'),
+                __DIR__ . '/Models/Permission.php' => app_path('Models/Permission.php'),
+            ], 'acl-models');
+
+            // Traits
+            $this->publishes([
+                __DIR__ . '/Traits/HasAcl.php' => app_path('Traits/HasAcl.php'),
+                __DIR__ . '/Traits/HasRolesAndPermissions.php' => app_path('Traits/HasRolesAndPermissions.php'),
+            ], 'acl-traits');
         }
     }
 

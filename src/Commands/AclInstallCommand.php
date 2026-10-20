@@ -18,9 +18,11 @@ class AclInstallCommand extends Command
 {
     protected $signature = 'acl:install
                             {--F|force : Écrase les fichiers existants et force l\'exécution des migrations}
-                            {--publish : Publie uniquement les ressources (configuration et migrations)}
+                            {--publish : Publie toutes les ressources (configuration, migrations, modèles et traits)}
                             {--config : Publie et configure uniquement le fichier de configuration}
-                            {--migrations : Publie et exécute uniquement les migrations}';
+                            {--migrations : Publie et exécute uniquement les migrations}
+                            {--models : Publie uniquement les modèles (Role, Permission)}
+                            {--traits : Publie uniquement les traits (HasAcl)}';
 
     protected $description = 'Interactively install and configure PMB ACL package';
 
@@ -34,6 +36,8 @@ class AclInstallCommand extends Command
         $isForce = (bool) $this->option('force');
         $onlyConfig = (bool) $this->option('config');
         $onlyMigrations = (bool) $this->option('migrations');
+        $onlyModels = (bool) $this->option('models');
+        $onlyTraits = (bool) $this->option('traits');
         $onlyPublish = (bool) $this->option('publish');
 
         // Affichage de l'en-tête ASCII
@@ -53,6 +57,36 @@ class AclInstallCommand extends Command
             $this->publishAndRunMigrations($isForce);
             $this->renderDivider();
             $this->line('  <green>✓</green> <bold>Migrations générées et exécutées avec succès.</bold>');
+            $this->line('');
+            return Command::SUCCESS;
+        }
+
+        // Traitement du drapeau --models seul
+        if ($onlyModels) {
+            $this->publishModels($isForce);
+            $this->renderDivider();
+            $this->line('  <green>✓</green> <bold>Modèles publiés avec succès dans app/Models.</bold>');
+            $this->line('');
+            return Command::SUCCESS;
+        }
+
+        // Traitement du drapeau --traits seul
+        if ($onlyTraits) {
+            $this->publishTraits($isForce);
+            $this->renderDivider();
+            $this->line('  <green>✓</green> <bold>Traits publiés avec succès dans app/Traits.</bold>');
+            $this->line('');
+            return Command::SUCCESS;
+        }
+
+        // Traitement du drapeau --publish seul (publie TOUT sans passer par les questions interactives)
+        if ($onlyPublish) {
+            $this->publishConfig($isForce);
+            $this->publishMigrationStub();
+            $this->publishModels($isForce);
+            $this->publishTraits($isForce);
+            $this->renderDivider();
+            $this->line('  <green>✓</green> <bold>Toutes les ressources (config, migrations, modèles, traits) ont été publiées avec succès.</bold>');
             $this->line('');
             return Command::SUCCESS;
         }
@@ -106,6 +140,20 @@ class AclInstallCommand extends Command
         $this->line('');
         $this->renderDivider();
 
+        // Demande optionnelle pour publier les modèles et traits
+        $publishModelsChoice = confirm(
+            label: __('pmb-acl::messages.prompt_publish_models'),
+            default: false
+        );
+
+        $publishTraitsChoice = confirm(
+            label: __('pmb-acl::messages.prompt_publish_traits'),
+            default: false
+        );
+
+        $this->line('');
+        $this->renderDivider();
+
         // ----------------------------------------------------
         // GÉNÉRATION DES RESSOURCES
         // ----------------------------------------------------
@@ -113,24 +161,32 @@ class AclInstallCommand extends Command
         $this->line('');
 
         spin(
-            callback: function () use ($modeChoice, $enableWildcards, $idType, $isForce) {
+            callback: function () use ($modeChoice, $enableWildcards, $idType, $publishModelsChoice, $publishTraitsChoice, $isForce) {
                 $this->publishConfig($isForce);
 
                 $this->updateConfigFile($modeChoice, $enableWildcards, $idType, $idType);
                 $this->publishMigrationStub();
+
+                if ($publishModelsChoice) {
+                    $this->publishModels($isForce);
+                }
+
+                if ($publishTraitsChoice) {
+                    $this->publishTraits($isForce);
+                }
             },
             message: ' Écriture des fichiers de configuration et stubs...'
         );
 
         $this->line('  <green>✓</green> Configuration générée : <gray>config/acl.php</gray>');
         $this->line('  <green>✓</green> Migration stubs générés : <gray>database/migrations/</gray>');
-        $this->line('');
-
-        if ($onlyPublish) {
-            $this->renderDivider();
-            outro(' Publication des ressources terminée (--publish).');
-            return Command::SUCCESS;
+        if ($publishModelsChoice) {
+            $this->line('  <green>✓</green> Modèles publiés : <gray>app/Models/</gray>');
         }
+        if ($publishTraitsChoice) {
+            $this->line('  <green>✓</green> Traits publiés : <gray>app/Traits/</gray>');
+        }
+        $this->line('');
 
         // ----------------------------------------------------
         // EXÉCUTION DES MIGRATIONS
@@ -257,6 +313,24 @@ class AclInstallCommand extends Command
         $this->callSilent('vendor:publish', [
             '--provider' => 'Pmb\Acl\AclServiceProvider',
             '--tag'      => 'acl-config',
+            '--force'    => $force,
+        ]);
+    }
+
+    protected function publishModels(bool $force = false): void
+    {
+        $this->callSilent('vendor:publish', [
+            '--provider' => 'Pmb\Acl\AclServiceProvider',
+            '--tag'      => 'acl-models',
+            '--force'    => $force,
+        ]);
+    }
+
+    protected function publishTraits(bool $force = false): void
+    {
+        $this->callSilent('vendor:publish', [
+            '--provider' => 'Pmb\Acl\AclServiceProvider',
+            '--tag'      => 'acl-traits',
             '--force'    => $force,
         ]);
     }
