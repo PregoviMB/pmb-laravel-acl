@@ -16,4 +16,6 @@ return [
     'unauthorized_role' => 'Unauthorized access. Required role(s): :roles',
     'unauthorized_permission' => 'Unauthorized access. Required permission: :permission',
     'prompt_id_type' => 'Which ID type does your User model use?',
+    'prompt_publish_models' => 'Would you like to publish customizable models (Role, Permission) to your application?',
+    'prompt_publish_traits' => 'Would you like to publish traits (HasAcl) to your application?',
 ];

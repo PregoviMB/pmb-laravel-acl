@@ -4,7 +4,7 @@
  * This file is part of the Laravel ACL package.
  *
  * @package   Pmb\Acl
- * @author    Pmb <pmb@pmb.com>
+ * @author    Pmb <pregovimb.vercel.app>
  * @link      https://github.com/pmb/laravel-acl
  * @license   MIT
  */

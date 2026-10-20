@@ -84,6 +84,26 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Multi-Tenancy / Scopes Configuration (Contextual RBAC)
+    |--------------------------------------------------------------------------
+    |
+    | Enables contextual roles and permissions scoped to a tenant, team,
+    | organization, company or project (e.g. user is 'Admin' in Tenant 1,
+    | but 'Member' in Tenant 2).
+    |
+    | - 'enabled'         : Enable or disable multi-tenancy support.
+    | - 'foreign_key'     : Name of the scoping column on pivot tables (e.g. 'tenant_id').
+    | - 'type'            : Foreign key type ('numeric', 'uuid', 'ulid').
+    |
+    */
+    'tenant' => [
+        'enabled'     => env('ACL_TENANT_ENABLED', false),
+        'foreign_key' => env('ACL_TENANT_FOREIGN_KEY', 'tenant_id'),
+        'type'        => env('ACL_TENANT_KEY_TYPE', 'numeric'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Primary Key Configuration
     |--------------------------------------------------------------------------
     |
@@ -138,6 +158,27 @@ return [
         'role_permissions' => 'role_permissions',
         'user_roles' => 'user_roles',
         'user_permissions' => 'user_permissions',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Permissions Cache Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Optimize permission checking performance by caching users' consolidated
+    | permissions in the application cache (Redis, Memcached, database, etc.).
+    |
+    | - 'enabled' : Enable or disable caching (recommended in production).
+    | - 'ttl'     : Time-to-live in seconds (e.g., 86400 for 24h, or null for forever).
+    | - 'key'     : Cache key prefix for user permissions.
+    | - 'store'   : Specific cache store to use, or null to use default cache store.
+    |
+    */
+    'cache' => [
+        'enabled' => env('ACL_CACHE_ENABLED', true),
+        'ttl'     => env('ACL_CACHE_TTL', 86400),
+        'key'     => env('ACL_CACHE_KEY', 'pmb_acl_user_permissions'),
+        'store'   => env('ACL_CACHE_STORE', null),
     ],
 
     /*

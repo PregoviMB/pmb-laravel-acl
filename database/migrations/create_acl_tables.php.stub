@@ -25,6 +25,11 @@ return new class extends Migration
         $pkType     = config('acl.primary_key_type');
         $userFkType = config('acl.user_foreign_key_type');
 
+        // Safe configuration fallback: checks 'tenant' first, falls back to legacy 'teams'
+        $tenantEnabled = config('acl.tenant.enabled', config('acl.teams.enabled', false));
+        $tenantFk       = config('acl.tenant.foreign_key', config('acl.teams.foreign_key', 'tenant_id'));
+        $tenantFkType   = config('acl.tenant.type', config('acl.teams.type', 'numeric'));
+
         // Disable foreign key constraints to avoid issues during table creation
         Schema::disableForeignKeyConstraints();
 
@@ -65,19 +70,32 @@ return new class extends Migration
         });
 
         // 4. User <-> Role Pivot Table
-        Schema::create($userRolesTable, function (Blueprint $table) use ($userTable, $rolesTable, $userFkType) {
+        Schema::create($userRolesTable, function (Blueprint $table) use ($userTable, $rolesTable, $userFkType, $tenantEnabled, $tenantFk, $tenantFkType) {
             $this->addForeignKey($table, 'user_id', $userTable, $userFkType);
             $this->addForeignKey($table, 'role_id', $rolesTable, $userFkType);
-            $table->primary(['user_id', 'role_id']);
+            
+            if ($tenantEnabled) {
+                $this->addModelForeignKey($table, $tenantFk, $tenantFkType);
+                $table->primary(['user_id', 'role_id', $tenantFk]);
+                $table->index([$tenantFk, 'user_id']);
+            } else {
+                $table->primary(['user_id', 'role_id']);
+            }
             $table->timestamps();
         });
 
         // 5. User <-> Permission Direct Pivot Table
-        Schema::create($userPermissionsTable, function (Blueprint $table) use ($userFkType, $userTable, $permissionsTable) {
+        Schema::create($userPermissionsTable, function (Blueprint $table) use ($userFkType, $userTable, $permissionsTable, $tenantEnabled, $tenantFk, $tenantFkType) {
             $this->addForeignKey($table, 'user_id', $userTable, $userFkType);
-
             $this->addForeignKey($table, 'permission_id', $permissionsTable, $userFkType);
-            $table->primary(['user_id', 'permission_id']);
+
+            if ($tenantEnabled) {
+                $this->addModelForeignKey($table, $tenantFk, $tenantFkType);
+                $table->primary(['user_id', 'permission_id', $tenantFk]);
+                $table->index([$tenantFk, 'user_id']);
+            } else {
+                $table->primary(['user_id', 'permission_id']);
+            }
             $table->timestamps();
         });
     }

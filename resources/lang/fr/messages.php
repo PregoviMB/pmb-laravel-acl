@@ -16,4 +16,6 @@ return [
     'unauthorized_role' => 'Accès refusé. Un des rôles suivants est requis : :roles',
     'unauthorized_permission' => 'Accès refusé. La permission suivante est requise : :permission',
     'prompt_id_type' => 'Quel type d\'identifiant (ID) utilise votre modèle User ?',
+    'prompt_publish_models' => 'Souhaitez-vous publier les modèles personnalisables (Role, Permission) dans votre application ?',
+    'prompt_publish_traits' => 'Souhaitez-vous publier les traits (HasAcl) dans votre application ?',
 ];

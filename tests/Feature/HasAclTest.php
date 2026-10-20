@@ -81,3 +81,49 @@ it('bypasses permission checks for super admins', function () {
     // The user has no direct or inherited permissions attached, but should be authorized
     expect($this->user->hasPermissionTo('any.random.permission'))->toBeTrue();
 });
+
+it('merges direct permissions and role permissions without duplicates in getAllPermissions and all_permissions accessor', function () {
+    /** @var TestCase $this */
+    $permDirect = Permission::create(['name' => 'direct.perm', 'label' => 'Direct', 'module' => 'general']);
+    $permShared = Permission::create(['name' => 'shared.perm', 'label' => 'Shared', 'module' => 'general']);
+    $permRole = Permission::create(['name' => 'role.perm', 'label' => 'Role', 'module' => 'general']);
+
+    $role = Role::create(['name' => 'Editor', 'slug' => 'editor']);
+    $role->permissions()->attach([$permShared->id, $permRole->id]);
+
+    $this->user->assignRole('editor');
+    $this->user->givePermissionTo('direct.perm', 'shared.perm');
+
+    // Test direct permissions relation
+    expect($this->user->directPermissions()->count())->toBe(2);
+
+    // Test consolidated permissions
+    $all = $this->user->getAllPermissions();
+    expect($all)->toHaveCount(3)
+        ->and($all->pluck('name')->all())->toContain('direct.perm', 'shared.perm', 'role.perm');
+
+    // Test dynamic accessor $user->all_permissions
+    expect($this->user->all_permissions)->toHaveCount(3)
+        ->and($this->user->all_permissions->pluck('name')->all())->toContain('direct.perm', 'shared.perm', 'role.perm');
+
+    // Check hasPermissionTo works for all merged permissions
+    expect($this->user->hasPermissionTo('direct.perm'))->toBeTrue()
+        ->and($this->user->hasPermissionTo('role.perm'))->toBeTrue()
+        ->and($this->user->hasPermissionTo('shared.perm'))->toBeTrue();
+});
+
+it('can sync direct permissions using syncPermissions', function () {
+    /** @var TestCase $this */
+    $p1 = Permission::create(['name' => 'posts.view', 'label' => 'View Posts', 'module' => 'posts']);
+    $p2 = Permission::create(['name' => 'posts.update', 'label' => 'Update Posts', 'module' => 'posts']);
+    $p3 = Permission::create(['name' => 'posts.delete', 'label' => 'Delete Posts', 'module' => 'posts']);
+
+    $this->user->givePermissionTo('posts.view', 'posts.delete');
+    expect($this->user->permissions()->count())->toBe(2);
+
+    $this->user->syncPermissions(['posts.view', 'posts.update']);
+
+    expect($this->user->hasPermissionTo('posts.view'))->toBeTrue()
+        ->and($this->user->hasPermissionTo('posts.update'))->toBeTrue()
+        ->and($this->user->hasPermissionTo('posts.delete'))->toBeFalse();
+});
