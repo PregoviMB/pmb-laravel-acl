@@ -64,23 +64,39 @@ composer require pmb/acl
 
 ```
 
-2. **Publier les fichiers de configuration et les migrations :**
+2. **Installation et configuration automatique :**
 
 ```bash
-php artisan vendor:publish --provider="Pmb\Acl\AclServiceProvider"
-
+php artisan acl:install
 ```
 
-Cette commande copie :
+Cette commande interactive vous permet de :
+- Choisir le mode d'autorisation (`hybrid`, `rbac`, `pbac`)
+- Activer ou désactiver les wildcards (`*`)
+- Détecter et adapter automatiquement le type d'ID (`numeric`, `ulid`, `uuid`)
+- Publier la configuration et les migrations
+- *(Optionnel)* Publier les **modèles** personnalisables (`Role`, `Permission`) et les **traits** (`HasAcl`)
 
-* Le fichier de configuration dans `config/acl.php`.
-* La migration dans `database/migrations/xxxx_xx_xx_xxxxxx_create_acl_tables.php`.
+3. **Ou publier manuellement les ressources selon vos besoins :**
 
-3. **Exécuter les migrations :**
+```bash
+# Publier la configuration
+php artisan vendor:publish --tag=acl-config
+
+# Publier les modèles dans app/Models (Role, Permission)
+php artisan vendor:publish --tag=acl-models
+
+# Publier les traits dans app/Traits (HasAcl, HasRolesAndPermissions)
+php artisan vendor:publish --tag=acl-traits
+
+# Publier les traductions
+php artisan vendor:publish --tag=acl-translations
+```
+
+4. **Exécuter les migrations :**
 
 ```bash
 php artisan migrate
-
 ```
 
 ---
@@ -269,8 +285,14 @@ $user->syncPermissions(['posts.create', 'posts.edit']);
 // Révoquer une permission directe
 $user->revokePermissionTo('posts.create');
 
-// Récupérer la liste consolidée de toutes les permissions (Directes + via Rôles)
+// Récupérer la relation des permissions directes uniquement
+$directPermissions = $user->directPermissions; // ou $user->permissions
+
+// Récupérer la collection fusionnée et dédupliquée (Permissions directes + via Rôles)
 $allPermissions = $user->getAllPermissions();
+
+// Ou via l'accesseur dynamique
+$allPermissions = $user->all_permissions;
 
 ```
 

@@ -20,7 +20,7 @@
             "role": "Developer"
         }
     ],
-    "tag" : "1.0.0",
+    "tag" : "1.0.1",
     "require": {
         "php": "^8.2",
         "laravel/prompts": "^0.1|^0.2|^0.3|^1.0",

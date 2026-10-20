@@ -4,6 +4,7 @@ namespace Pmb\Acl\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Support\Str;
 use Pmb\Acl\Contracts\PermissionInterface;
 use Pmb\Acl\Models\Role;
 
@@ -81,6 +82,35 @@ class Permission extends Model implements PermissionInterface
             'ulid'  => strtolower((string) \Illuminate\Support\Str::ulid()),
             default => parent::newUniqueId(),
         };
+    }
+
+    /**
+     * Retrieve the model for a bound value.
+     *
+     * Overrides route binding query to support UUIDs, ULIDs, or numeric IDs dynamically.
+     *
+     * @param  \Illuminate\Database\Eloquent\Model|\Illuminate\Database\Eloquent\Relations\Relation  $query
+     * @param  mixed  $value
+     * @param  string|null  $field
+     * @return \Illuminate\Database\Eloquent\Relations\Relation|\Illuminate\Database\Eloquent\Builder
+     */
+    public function resolveRouteBindingQuery($query, $value, $field = null)
+    {
+        if ($field) {
+            return parent::resolveRouteBindingQuery($query, $value, $field);
+        }
+
+        $pkType = config('acl.primary_key_type', 'numeric');
+
+        if ($pkType === 'uuid' && !Str::isUuid($value)) {
+            return $query->whereNull($this->getRouteKeyName());
+        }
+
+        if ($pkType === 'ulid' && !Str::isUlid($value)) {
+            return $query->whereNull($this->getRouteKeyName());
+        }
+
+        return $query->where($this->getRouteKeyName(), $value);
     }
 
     /**
