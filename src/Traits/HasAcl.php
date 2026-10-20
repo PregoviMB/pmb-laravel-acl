@@ -292,14 +292,35 @@ trait HasAcl
         $cacheKey = $this->getAclUserCacheKey();
         $cacheTtl = config('acl.cache.ttl', 86400);
 
-        if ($cacheTtl) {
-            return $cache->remember($cacheKey, $cacheTtl, function () {
-                return $this->fetchConsolidatedPermissions();
-            });
+        $retrieveData = function () {
+            return $this->fetchConsolidatedPermissions()->map(function ($p) {
+                return [
+                    'id'     => $p->id ?? null,
+                    'name'   => $p->name ?? null,
+                    'label'  => $p->label ?? null,
+                    'module' => $p->module ?? null,
+                ];
+            })->all();
+        };
+
+        $cachedData = $cacheTtl
+            ? $cache->remember($cacheKey, $cacheTtl, $retrieveData)
+            : $cache->rememberForever($cacheKey, $retrieveData);
+
+        // Check if cache returned an incomplete or corrupted structure
+        if (!is_array($cachedData)) {
+            $this->flushUserAclCache();
+            $cachedData = $retrieveData();
         }
 
-        return $cache->rememberForever($cacheKey, function () {
-            return $this->fetchConsolidatedPermissions();
+        $permissionModel = config('acl.models.permission', Permission::class);
+
+        return collect($cachedData)->map(function ($attributes) use ($permissionModel) {
+            $permission = new $permissionModel();
+            $permission->forceFill($attributes);
+            $permission->exists = true;
+
+            return $permission;
         });
     }
 
