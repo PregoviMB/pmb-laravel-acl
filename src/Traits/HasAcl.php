@@ -4,6 +4,7 @@ namespace Pmb\Acl\Traits;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Pmb\Acl\Models\Permission;
 use Pmb\Acl\Models\Role;
@@ -48,6 +49,16 @@ trait HasAcl
 
         /** @var Model $this */
         return $this->belongsToMany($permissionModel, $pivotTable)->withTimestamps();
+    }
+
+    /**
+     * Relationship: Get all direct permissions assigned to the user (alias for clarity).
+     *
+     * @return BelongsToMany
+     */
+    public function directPermissions(): BelongsToMany
+    {
+        return $this->permissions();
     }
 
     /**
@@ -182,6 +193,37 @@ trait HasAcl
     }
 
     /**
+     * Synchronize the user's direct permissions with a given list, replacing previous direct assignments.
+     *
+     * @param array $permissions Array of permission names or Permission instances.
+     * @return static
+     */
+    public function syncPermissions(array $permissions): static
+    {
+        if (!config('acl.enable_direct_permissions', true)) {
+            return $this;
+        }
+
+        $permissionModel = config('acl.models.permission', Permission::class);
+        $ids = [];
+
+        foreach ($permissions as $permission) {
+            if (is_string($permission)) {
+                $permissionObj = $permissionModel::where('name', $permission)->first();
+                if ($permissionObj) {
+                    $ids[] = $permissionObj->id;
+                }
+            } elseif ($permission instanceof Permission) {
+                $ids[] = $permission->id;
+            }
+        }
+
+        $this->permissions()->sync($ids);
+
+        return $this;
+    }
+
+    /**
      * Determine if the user has a specific permission.
      * 
      * Evaluation Flow:
@@ -220,13 +262,47 @@ trait HasAcl
 
     /**
      * Helper to retrieve all consolidated permissions (direct assignments + role-based).
+     *
+     * @return Collection
      */
-    public function getAllPermissions()
+    public function getAllPermissions(): Collection
     {
-        $directPermissions = $this->permissions;
-        $rolePermissions = $this->roles->load('permissions')->pluck('permissions')->collapse();
+        $mode = config('acl.mode', 'hybrid');
+        $allPermissions = collect();
 
-        return $directPermissions->merge($rolePermissions)->unique('id');
+        // 1. Direct user permissions (if Hybrid or PBAC)
+        if (in_array($mode, ['hybrid', 'pbac'], true)) {
+            $directPermissions = $this->relationLoaded('permissions')
+                ? $this->permissions
+                : $this->permissions()->get();
+            $allPermissions = $allPermissions->merge($directPermissions);
+        }
+
+        // 2. Role permissions (if Hybrid or RBAC)
+        if (in_array($mode, ['hybrid', 'rbac'], true)) {
+            $roles = $this->relationLoaded('roles')
+                ? $this->roles
+                : $this->roles()->with('permissions')->get();
+
+            if ($this->relationLoaded('roles') && $roles->isNotEmpty()) {
+                $roles->loadMissing('permissions');
+            }
+
+            $rolePermissions = $roles->pluck('permissions')->collapse();
+            $allPermissions = $allPermissions->merge($rolePermissions);
+        }
+
+        return $allPermissions->unique('id')->values();
+    }
+
+    /**
+     * Accessor to get all consolidated permissions directly via $user->all_permissions.
+     *
+     * @return Collection
+     */
+    public function getAllPermissionsAttribute(): Collection
+    {
+        return $this->getAllPermissions();
     }
 
     /**
