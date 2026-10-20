@@ -22,6 +22,11 @@ Conçu pour s'adapter à toutes les architectures de base de données (ULID, UUI
   - [Gestion des Rôles](#gestion-des-rôles)
   - [Gestion des Permissions](#gestion-des-permissions)
   - [Bypass Super Admin & Wildcards](#bypass-super-admin--wildcards)
+  - [Multi-Tenancy & Scopes (`tenant`)](#multi-tenancy--scopes-tenant)
+  - [Cache des Permissions](#cache-des-permissions)
+  - [Événements de Cycle de Vie (Audit)](#événements-de-cycle-de-vie-audit)
+- [Protection des Routes & Middlewares](#-protection-des-routes--middlewares)
+- [Commandes Artisan (`acl:sync`, `acl:show`)](#-commandes-artisan)
 - [Génération Dynamique d'Interfaces Administration (UI Matrix)](#-génération-dynamique-dinterfaces-administration-ui-matrix)
   - [1. Contrôleur de Gestion des Rôles (`RoleController`)](#1-contrôleur-de-gestion-des-rôles-rolecontroller)
   - [2. Formulaire Blade & JS Matrice de Permissions](#2-formulaire-blade--js-matrice-de-permissions)
@@ -294,6 +299,92 @@ $allPermissions = $user->getAllPermissions();
 // Ou via l'accesseur dynamique
 $allPermissions = $user->all_permissions;
 
+```
+
+### Multi-Tenancy & Scopes (`tenant`)
+
+Attribuez des rôles et des permissions contextuels à un locataire, organisation, équipe ou projet sans conflit :
+
+```php
+// Assigner 'Admin' dans l'organisation 10, mais simple 'Membre' dans l'organisation 20
+$user->forTenant(10)->assignRole('admin');
+$user->forTenant(20)->assignRole('member');
+
+// Vérification contextuelle
+$user->forTenant(10)->hasRole('admin'); // true
+$user->forTenant(20)->hasRole('admin'); // false
+
+// Les permissions s'évaluent automatiquement dans le scope
+$user->forTenant(10)->hasPermissionTo('billing.manage'); // true
+$user->forTenant(20)->hasPermissionTo('billing.manage'); // false
+```
+
+> **Migration non-régressive pour activer le multi-tenant sur une application existante :**
+> ```bash
+> php artisan vendor:publish --tag=acl-tenant-migrations
+> php artisan migrate
+> ```
+
+### Cache des Permissions
+
+Le package met en cache les permissions consolidées de chaque utilisateur pour garantir **0 requête SQL** sur les vérifications de droits :
+
+```php
+use Pmb\Acl\Facades\Acl;
+
+// Purgé automatiquement lors des assignations / révocations.
+// Pour purger manuellement :
+$user->flushUserAclCache();
+Acl::flushUserCache($user);
+```
+
+### Événements de Cycle de Vie (Audit)
+
+Le package émet des événements Laravel natifs pour l'audit et la traçabilité :
+- `Pmb\Acl\Events\RoleAssigned` (`$event->user`, `$event->role`, `$event->tenantId`)
+- `Pmb\Acl\Events\RoleRevoked` (`$event->user`, `$event->role`, `$event->tenantId`)
+- `Pmb\Acl\Events\PermissionGranted` (`$event->user`, `$event->permission`, `$event->tenantId`)
+- `Pmb\Acl\Events\PermissionRevoked` (`$event->user`, `$event->permission`, `$event->tenantId`)
+
+---
+
+## 🛡️ Protection des Routes & Middlewares
+
+Les middlewares gèrent désormais les combinaisons logiques **OU** (`|`) et **ET** (`&`) :
+
+```php
+// Rôles avec logique OU (Admin OU Manager)
+Route::get('/dashboard', [DashboardController::class, 'index'])->middleware('role:admin|manager');
+
+// Rôles avec logique ET (doit posséder les deux)
+Route::get('/security', [SecurityController::class, 'index'])->middleware('role:admin&auditor');
+
+// Permissions avec logique OU
+Route::get('/posts', [PostController::class, 'index'])->middleware('permission:posts.view|posts.edit');
+
+// Permissions avec logique ET
+Route::post('/payments/approve', [PaymentController::class, 'approve'])->middleware('permission:payments.make&payments.approve');
+```
+
+---
+
+## 🔍 Commandes Artisan
+
+### 1. `acl:sync` (Synchroniser le catalogue)
+Synchronise les permissions de `config/acl.php` vers votre base de données sans impacter les affectations de rôles existantes :
+
+```bash
+php artisan acl:sync
+
+# Supprimer aussi les anciennes permissions retirées du fichier de config
+php artisan acl:sync --prune
+```
+
+### 2. `acl:show` (Auditer les droits d'un utilisateur)
+Affiche sous forme de table CLI l'ensemble des rôles, permissions directes et permissions héritées d'un utilisateur :
+
+```bash
+php artisan acl:show {id_ou_email}
 ```
 
 ---

@@ -7,6 +7,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
+use Pmb\Acl\Events\PermissionGranted;
+use Pmb\Acl\Events\PermissionRevoked;
+use Pmb\Acl\Events\RoleAssigned;
+use Pmb\Acl\Events\RoleRevoked;
 use Pmb\Acl\Models\Permission;
 use Pmb\Acl\Models\Role;
 
@@ -186,6 +190,8 @@ trait HasAcl
             } else {
                 $this->roles()->syncWithoutDetaching([$role->id]);
             }
+
+            event(new RoleAssigned($this, $role, $this->aclCurrentTenantId));
         }
 
         $this->flushUserAclCache();
@@ -209,6 +215,7 @@ trait HasAcl
             }
             if ($role) {
                 $this->roles()->detach($role->id);
+                event(new RoleRevoked($this, $role, $this->aclCurrentTenantId));
             }
         }
 
@@ -290,6 +297,8 @@ trait HasAcl
             } else {
                 $this->permissions()->syncWithoutDetaching([$permission->id]);
             }
+
+            event(new PermissionGranted($this, $permission, $this->aclCurrentTenantId));
         }
 
         $this->flushUserAclCache();
@@ -313,6 +322,7 @@ trait HasAcl
             }
             if ($permission) {
                 $this->permissions()->detach($permission->id);
+                event(new PermissionRevoked($this, $permission, $this->aclCurrentTenantId));
             }
         }
 
