@@ -96,6 +96,9 @@ php artisan vendor:publish --tag=acl-traits
 
 # Publier les traductions
 php artisan vendor:publish --tag=acl-translations
+
+# Publier la migration d'altération Multi-Tenant (non-régressive pour bases existantes)
+php artisan vendor:publish --tag=acl-tenant-migrations
 ```
 
 4. **Exécuter les migrations :**
@@ -116,6 +119,16 @@ Le fichier `config/acl.php` vous permet de paramétrer l'ensemble des comporteme
 return [
     /*
     |--------------------------------------------------------------------------
+    | Authorization Architecture Mode
+    |--------------------------------------------------------------------------
+    | - 'hybrid' : Roles + Direct Permissions + Wildcards [Recommended]
+    | - 'rbac'   : Role-Based Access Control only
+    | - 'pbac'   : Permission-Based Access Control only
+    */
+    'mode' => env('ACL_MODE', 'hybrid'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Primary Key Type
     |--------------------------------------------------------------------------
     | Options: 'ulid', 'uuid', 'numeric'
@@ -131,6 +144,31 @@ return [
     | Defines the column type used for user_id in pivot tables.
     */
     'user_foreign_key_type' => env('ACL_USER_FK_TYPE', 'numeric'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Multi-Tenancy / Scopes (Contextual RBAC)
+    |--------------------------------------------------------------------------
+    | Scopes roles and permissions per tenant, team, organization, project.
+    */
+    'tenant' => [
+        'enabled'     => env('ACL_TENANT_ENABLED', false),
+        'foreign_key' => env('ACL_TENANT_FOREIGN_KEY', 'tenant_id'),
+        'type'        => env('ACL_TENANT_KEY_TYPE', 'numeric'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Permissions Cache Configuration
+    |--------------------------------------------------------------------------
+    | High-performance caching ensuring 0 SQL queries on repeated checks.
+    */
+    'cache' => [
+        'enabled' => env('ACL_CACHE_ENABLED', true),
+        'ttl'     => env('ACL_CACHE_TTL', 86400),
+        'key'     => env('ACL_CACHE_KEY', 'pmb_acl_user_permissions'),
+        'store'   => env('ACL_CACHE_STORE', null),
+    ],
 
     /*
     |--------------------------------------------------------------------------
@@ -348,7 +386,7 @@ Le package émet des événements Laravel natifs pour l'audit et la traçabilit�
 
 ---
 
-## 🛡️ Protection des Routes & Middlewares
+## Protection des Routes & Middlewares
 
 Les middlewares gèrent désormais les combinaisons logiques **OU** (`|`) et **ET** (`&`) :
 
@@ -368,7 +406,7 @@ Route::post('/payments/approve', [PaymentController::class, 'approve'])->middlew
 
 ---
 
-## 🔍 Commandes Artisan
+## Commandes Artisan
 
 ### 1. `acl:sync` (Synchroniser le catalogue)
 Synchronise les permissions de `config/acl.php` vers votre base de données sans impacter les affectations de rôles existantes :
@@ -605,6 +643,6 @@ class AclSeeder extends Seeder
 
 ---
 
-## 📄 Licence
+## Licence
 
 Ce package est sous licence [MIT](LICENSE.md).
